@@ -134,12 +134,10 @@ void execArgsRedirect(char** parsed, char* filename)
     } 
     // have the child execute the command
     else if (pid == 0) { 
-	char line2[500];
-	int outputFile = open(filename, O_RDWR|O_CREAT);
+	// redirect the child's output from stdout to the given file
+	int outputFile = open(filename, O_RDWR|O_CREAT, 00700);
 	dup2(outputFile, 1);
-	fgets(line2, 500, stdout);
-        write(outputFile, line2, 500);
-
+	
         if (execv(parsed[0], parsed) < 0)
             printf("Couldn't execute command\n");  
         exit(0); 
@@ -231,6 +229,7 @@ int main(){
     //check if the user inputted a '>' and if they did, redirect output to the given file
     char* rightBracketPtr = strchr(line, '>');
     if(rightBracketPtr != NULL){
+	//get the index of the '>' character in the line
 	int position = line - rightBracketPtr;
 	position = position * -1;
 	
@@ -243,12 +242,10 @@ int main(){
 	char** beforeBracketPARSED = parseArgs(beforeBracket);
 
 	//get the filename
-        char afterBracket[strlen(line) - position];
-	memcpy(afterBracket, &line[position+1], strlen(line));
-	afterBracket[strlen(line) - position] = '\0';
+	char* filename = strtok(&line[position+1], " \n");
 
 	//run the command and redirect the output to the given file
-	execArgsRedirect(beforeBracketPARSED, afterBracket);
+	execArgsRedirect(beforeBracketPARSED, filename);
 	free(beforeBracketPARSED);
     }
     
@@ -261,45 +258,29 @@ int main(){
 	//put every char before the '<' into an array
 	char beforeBracket[position];
 	memcpy(beforeBracket, &line, position);
+	printf("stuff before the bracket: %s#\n", beforeBracket);
 
 	//get the filename
-	char afterBracket[strlen(line) - position];
-	memcpy(afterBracket, &line[position+1], strlen(line));
-	afterBracket[strlen(line) - position] = '\0';
-
-	printf("filename: %s\n", afterBracket);
+	char* filename = strtok(&line[position+1], " \n");
+	printf("filename: %s\n", filename);
 
 	//transfer everything in the file into an array
-	char stuffFromFile[100];
-	char c;
-	int i = 0;
-	FILE* file;
-	file = fopen(afterBracket, "r");
-	if (file) {
-	    printf("You finally got to this point\n\n");
-	    while ((c = getc(file)) != EOF){
-        	stuffFromFile[i] = c;
-		i++;
-	    }
-	    fclose(file);
-	}
-	stuffFromFile[i] = '\0';
-
-	int x = 0;
-	printf("The stuff from file is: ");
-	while(stuffFromFile[x] != '\0'){
-		putchar(stuffFromFile[x]);
-		x++;
-	}	
-	printf("\n");
+	/*char stuffFromFile[50];
+	int fd1 = open(filename, O_RDONLY);
+	read(fd1, stuffFromFile, 49);
+	stuffFromFile[49] = '\0';
+	printf("Stuff from file: %s\n", stuffFromFile);*/
 
 	//concatenate the pre-'<' stuff with the file stuff
-	strcat(stuffFromFile, beforeBracket);
+	//strcat(stuffFromFile, beforeBracket);
+	strcat(beforeBracket, filename);
+
+	printf("concatenated argument: %s#\n", beforeBracket);
 
 	//parse the whole command
 	char** wholeThingPARSED = parseArgs(beforeBracket);
 
-	x = 0;
+	int x = 0;
 	printf("The concatenated argument is: ");
 	while(beforeBracket[x] != '\0'){
 		putchar(beforeBracket[x]);
@@ -310,6 +291,7 @@ int main(){
 	//execute the command
 	execArgs(wholeThingPARSED);
 	free(wholeThingPARSED);
+	//memset(stuffFromFile, 0, 50);
     }
     
     //if the user did none of those things, just run the inputted command normally
