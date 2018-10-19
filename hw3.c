@@ -52,7 +52,32 @@ void execArgs(char** parsed)
         int status;
         wait(&status);
 	printf("pid:%d status:%d\n", pid, WEXITSTATUS(status));
+    } 
+}
+
+
+// also executes 1 command, but saves the pid and status of the child
+int execArgsStupidly(char** parsed, int* status) 
+{
+    // Forking a child 
+    int pid = fork();  
+  
+    if (pid == -1) { 
+        printf("Couldn't fork child\n"); 
         return; 
+    } 
+    // have the child execute the command
+    else if (pid == 0) { 
+        if (execv(parsed[0], parsed) < 0)
+            printf("Couldn't execute command\n");  
+        exit(0); 
+    } 
+    // have the parent wait for the child to die
+    else { 
+        //int status;
+        wait(&status);
+	return pid;
+	printf("pid:%d status:%d\n", pid, WEXITSTATUS(status));
     } 
 } 
 
@@ -61,7 +86,7 @@ void execArgs(char** parsed)
 void exec2Args(char** parsed, char** parsed2) 
 { 
     // NOTE: this function deletes parsed[0] if parsed has more than 1 element and i have absolutely no idea why
-    /*int i=0;
+    int i=0;
     while(parsed[i] != NULL){
 	printf("parsed[%d]: %s\n", i, parsed[i]);
 	i++;
@@ -71,7 +96,7 @@ void exec2Args(char** parsed, char** parsed2)
     while(parsed2[i] != NULL){
 	printf("parsed2[%d]: %s\n", i, parsed2[i]);
 	i++;
-    }*/
+    }
 
     // Forking a child 
     int pid = fork();
@@ -116,15 +141,9 @@ void exec2Args(char** parsed, char** parsed2)
 }
 
 
-// executes 1 command and redirects the output of the child to wherever
+// executes 1 command and redirects the output to the given file
 void execArgsRedirect(char** parsed, char* filename) 
 {
-    /*int i=0;
-    while(parsed[i] != NULL){
-	printf("parsed[%d]: %s\n", i, parsed[i]);
-	i++;
-    }*/
-
     // Forking a child 
     int pid = fork();  
   
@@ -147,7 +166,6 @@ void execArgsRedirect(char** parsed, char* filename)
         int status;
         wait(&status);
 	printf("pid:%d status:%d\n", pid, WEXITSTATUS(status));
-        return; 
     } 
 }
 
@@ -165,7 +183,6 @@ char** parseArgs(char* line){
   //put all the words on the line into the argsarray
   int i = 0;
   while (word) {
-    //printf("word: %s\n", word);
     //copy a word to the arg array
     parsedArgs[i] = word;
     //get next word
@@ -187,7 +204,6 @@ int main(){
   while(1){
     //create some space for our strings
     char line[500];
-    //char* argsarray[100]; // i spent HOURS trying to get the stupid type for this stupid array right
 
     //print prompt
     printf("CS361 >");
@@ -221,7 +237,15 @@ int main(){
 	char** afterSemicolonPARSED = parseArgs(afterSemicolon);
 
 	//execute the two commands
-	exec2Args(beforeSemicolonPARSED, afterSemicolonPARSED);
+	//exec2Args(beforeSemicolonPARSED, afterSemicolonPARSED);
+	int* status1;
+	int pid1 = execArgsStupidly(beforeSemicolonPARSED, status1);
+	int* status2;
+	int pid2 = execArgsStupidly(afterSemicolonPARSED, status2);
+
+	printf("pid:%d status:%d\n", pid1, WEXITSTATUS(*status1));
+	printf("pid:%d status:%d\n", pid2, WEXITSTATUS(*status2));
+	
 	free(beforeSemicolonPARSED);
 	free(afterSemicolonPARSED);
     }    
@@ -254,15 +278,19 @@ int main(){
     if(leftBracketPtr != NULL){
 	int position = line - leftBracketPtr;
 	position = position * -1;
-	
+
+	line[position] = ' ';	
+	char** parsedArgs = parseArgs(line);
+	execArgs(parsedArgs);
+
 	//put every char before the '<' into an array
-	char beforeBracket[position];
+	/*char beforeBracket[position];
 	memcpy(beforeBracket, &line, position);
 	printf("stuff before the bracket: %s#\n", beforeBracket);
 
 	//get the filename
 	char* filename = strtok(&line[position+1], " \n");
-	printf("filename: %s\n", filename);
+	printf("filename: %s\n", filename);*/
 
 	//transfer everything in the file into an array
 	/*char stuffFromFile[50];
@@ -273,7 +301,7 @@ int main(){
 
 	//concatenate the pre-'<' stuff with the file stuff
 	//strcat(stuffFromFile, beforeBracket);
-	strcat(beforeBracket, filename);
+	/*strcat(beforeBracket, filename);
 
 	printf("concatenated argument: %s#\n", beforeBracket);
 
@@ -286,11 +314,11 @@ int main(){
 		putchar(beforeBracket[x]);
 		x++;
 	}	
-	printf("\n");
+	printf("\n");*/
 
 	//execute the command
-	execArgs(wholeThingPARSED);
-	free(wholeThingPARSED);
+	//execArgs(wholeThingPARSED);
+	//free(wholeThingPARSED);
 	//memset(stuffFromFile, 0, 50);
     }
     
