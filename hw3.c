@@ -8,6 +8,8 @@
 #include <fcntl.h>
 
 
+//signal handler for CTRL+C
+//makes it very annoying to terminate the program if it gets stuck
 void sigint_handler(int sig){
   char msg[] = "\ncaught sigint\n";
   write(1, msg, sizeof(msg));
@@ -16,6 +18,7 @@ void sigint_handler(int sig){
 }
 
 
+//signal handler for CTRL+Z
 void sigstp_handler(int sig){
   char msg[] = "\ncaught sigstp\n";
   write(1, msg, sizeof(msg));
@@ -28,12 +31,6 @@ void sigstp_handler(int sig){
 // executes 1 command
 void execArgs(char** parsed) 
 {
-    /*int i=0;
-    while(parsed[i] != NULL){
-	printf("parsed[%d]: %s\n", i, parsed[i]);
-	i++;
-    }*/
-
     // Forking a child 
     int pid = fork();  
   
@@ -53,51 +50,12 @@ void execArgs(char** parsed)
         wait(&status);
 	printf("pid:%d status:%d\n", pid, WEXITSTATUS(status));
     } 
-}
-
-
-// also executes 1 command, but saves the pid and status of the child
-int execArgsStupidly(char** parsed, int* status) 
-{
-    // Forking a child 
-    int pid = fork();  
-  
-    if (pid == -1) { 
-        printf("Couldn't fork child\n"); 
-        return; 
-    } 
-    // have the child execute the command
-    else if (pid == 0) { 
-        if (execv(parsed[0], parsed) < 0)
-            printf("Couldn't execute command\n");  
-        exit(0); 
-    } 
-    // have the parent wait for the child to die
-    else { 
-        //int status;
-        wait(&status);
-	return pid;
-	printf("pid:%d status:%d\n", pid, WEXITSTATUS(status));
-    } 
 } 
 
 
-// executes 2 commands (outputs the pid and exit status only after both children are dead)
+// executes 2 commands and outputs the pid and exit status only after both children are dead
 void exec2Args(char** parsed, char** parsed2) 
 { 
-    // NOTE: this function deletes parsed[0] if parsed has more than 1 element and i have absolutely no idea why
-    int i=0;
-    while(parsed[i] != NULL){
-	printf("parsed[%d]: %s\n", i, parsed[i]);
-	i++;
-    }
-
-    i=0;
-    while(parsed2[i] != NULL){
-	printf("parsed2[%d]: %s\n", i, parsed2[i]);
-	i++;
-    }
-
     // Forking a child 
     int pid = fork();
     int status;  
@@ -170,6 +128,7 @@ void execArgsRedirect(char** parsed, char* filename)
 }
 
 
+// takes an array and turns it into a null terminated argument list
 char** parseArgs(char* line){
   //break the line up into words
   char *word = strtok(line, " \n");
@@ -214,38 +173,30 @@ int main(){
     //check if the user inputted a semicolon and if they did, try running those 2 commands
     char* semicolonPtr = strchr(line, ';');
     if(semicolonPtr != NULL){
+	//get the index of the ';' character in the line
 	int position = line - semicolonPtr;
 	position = position * -1;
 	
-	//put everything before the semicolon into an array
-	char beforeSemicolon[position];
-	memcpy(beforeSemicolon, &line, position);
-	beforeSemicolon[position] = '\0';
+	//NOTE: You M U S T copy onto the afterSemicolon array before you copy onto the beforeSemicolon array
+	//I have absolutely no idea why but if you don't copy in this order,
+	//beforeSemicolon[0] gets erased and you can't do anything about it
 
-	//parse that array into an argument list
-	char** beforeSemicolonPARSED = parseArgs(beforeSemicolon);
-	//printf("Executing the first command: \n");	
-	//execArgs(beforeSemicolonPARSED);
-	//printf("\nExecuting both commands: \n");
-
-	//put everything after the semicolon into an array as well
+	//put everything after the semicolon into an array
         char afterSemicolon[strlen(line) - position];
-	memcpy(afterSemicolon, &line[position+1], strlen(line));
+	strncpy(afterSemicolon, &line[position+1], strlen(line));
 	afterSemicolon[strlen(line) - position] = '\0';
 
-	//parse that array into an argument list too
+	//put everything before the semicolon into an array
+	char beforeSemicolon[position];
+	strncpy(beforeSemicolon, line, position);
+	
+	//parse both arrays into argument lists
 	char** afterSemicolonPARSED = parseArgs(afterSemicolon);
+	char** beforeSemicolonPARSED = parseArgs(beforeSemicolon);	
 
 	//execute the two commands
-	//exec2Args(beforeSemicolonPARSED, afterSemicolonPARSED);
-	int* status1;
-	int pid1 = execArgsStupidly(beforeSemicolonPARSED, status1);
-	int* status2;
-	int pid2 = execArgsStupidly(afterSemicolonPARSED, status2);
+	exec2Args(beforeSemicolonPARSED, afterSemicolonPARSED);
 
-	printf("pid:%d status:%d\n", pid1, WEXITSTATUS(*status1));
-	printf("pid:%d status:%d\n", pid2, WEXITSTATUS(*status2));
-	
 	free(beforeSemicolonPARSED);
 	free(afterSemicolonPARSED);
     }    
@@ -259,8 +210,7 @@ int main(){
 	
 	//put every char before the '>' into an array
 	char beforeBracket[position];
-	memcpy(beforeBracket, &line, position);
-	beforeBracket[position] = '\0';
+	memcpy(beforeBracket, line, position);
 
 	//then parse that array into an argument list
 	char** beforeBracketPARSED = parseArgs(beforeBracket);
@@ -274,8 +224,10 @@ int main(){
     }
     
     //check if the user inputted a '<' and if they did, use the given file as input
+    //i honestly don't know what this argument is even supposed to do
     char* leftBracketPtr = strchr(line, '<');
     if(leftBracketPtr != NULL){
+	//get the index of the '<' character in the line
 	int position = line - leftBracketPtr;
 	position = position * -1;
 
@@ -290,14 +242,14 @@ int main(){
 
 	//get the filename
 	char* filename = strtok(&line[position+1], " \n");
-	printf("filename: %s\n", filename);*/
+	printf("filename: %s\n", filename);
 
 	//transfer everything in the file into an array
-	/*char stuffFromFile[50];
+	char stuffFromFile[50];
 	int fd1 = open(filename, O_RDONLY);
 	read(fd1, stuffFromFile, 49);
 	stuffFromFile[49] = '\0';
-	printf("Stuff from file: %s\n", stuffFromFile);*/
+	printf("Stuff from file: %s\n", stuffFromFile);
 
 	//concatenate the pre-'<' stuff with the file stuff
 	//strcat(stuffFromFile, beforeBracket);
@@ -322,7 +274,7 @@ int main(){
 	//memset(stuffFromFile, 0, 50);
     }
     
-    //if the user did none of those things, just run the inputted command normally
+    //if the user did not use ';' '>' or '<', then just run the inputted command normally
     if(semicolonPtr == NULL && rightBracketPtr == NULL && leftBracketPtr == NULL){
 	char** argsarray = parseArgs(line);
 	execArgs(argsarray);  
