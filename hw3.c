@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+//i changed something
 
 //signal handler for CTRL+C
 //makes it very annoying to terminate the program if it gets stuck
